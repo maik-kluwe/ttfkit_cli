@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "ttfkit_cli": {
+      "commandName": "Project",
+      "commandLineArgs": "C:\\delme\\icons C:\\delme\\font.ttf"
+    }
+  }
+}
