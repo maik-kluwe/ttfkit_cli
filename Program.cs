@@ -15,9 +15,10 @@ namespace ttf_kit
                 Console.WriteLine("Invalid arguments");
                 Console.WriteLine();
 
-                Console.WriteLine("Usage: ttfkit_cli SVG_FOLDER_PATH FONT_PATH [OPTIONS]\n");
-                Console.WriteLine("  Svg_Folder_Path:\tPath to folder containing svg images");
+                Console.WriteLine("Usage: ttfkit_cli SVG_PATH FONT_PATH FONT_NAME [OPTIONS]\n");
+                Console.WriteLine("  SVG_Path:\tPath to folder containing svg images");
                 Console.WriteLine("  Font_Path:\t\tDestination path for created ttf file");
+                Console.WriteLine("  Font_Name:\t\tName for created ttf font");
                 Console.WriteLine();
                 Console.WriteLine("Options:\n");
                 Console.WriteLine("  --host=HOST\t\tTarget ttfkit server address (default \"http://localhost:3000\")");
@@ -28,7 +29,7 @@ namespace ttf_kit
             try
             {
                 string requestUrl = ParseHostUrl(args);
-                CreateFont(requestUrl, args[0], args[1]);
+                CreateFont(requestUrl, args[0], args[1], args[2]);
             }
             catch (Exception ex)
             {
@@ -46,9 +47,8 @@ namespace ttf_kit
             return "http://localhost:3000";
         }
 
-        static void CreateFont(string requestUrl, string iconFolderPath, string fontPath)
+        static void CreateFont(string requestUrl, string iconFolderPath, string outputPath, string fontName)
         {
-            string fontName = Path.GetFileNameWithoutExtension(fontPath);
             var request = new CreateFontRequest(fontName, iconFolderPath);
 
             using var client = new HttpClient();
@@ -59,51 +59,59 @@ namespace ttf_kit
             if (result == null)
                 throw new Exception("Invalid server answer: no data");
 
-            result.ToFile(fontPath);
-            Console.WriteLine($"Font file created at {fontPath}");
+            result.ToFile(fontName, outputPath);
+            Console.WriteLine($"Font file created at {outputPath}");
         }
     }
 
     internal class CreateFontRequest
     {
-        public string fontName { get; set; }
-        public List<Glyph> files { get; set; }
+        public Config config { get; set; }
+        public List<Icon> files { get; set; }
 
         public CreateFontRequest(string fontName, string iconFolderPath)
         {
-            this.fontName = fontName;
-            files = new List<Glyph>();
+            this.config = new Config
+            {
+                fontName = fontName
+            };
+            files = new List<Icon>();
 
             foreach (string filePath in Directory.GetFiles(iconFolderPath, "*.svg"))
             {
                 string name = Path.GetFileNameWithoutExtension(filePath);
                 byte[] data = File.ReadAllBytes(filePath);
 
-                files.Add(new Glyph(name, data));
+                files.Add(new Icon(name, data));
             }
         }
     }
 
     internal class CreateFontResponse
     {
-        public string name { get; set; }
-        public string data { get; set; }
+        public string config { get; set; }
+        public string ttf { get; set; }
 
-        public void ToFile(string filePath)
+        public void ToFile(string fontName, string outputPath)
         {
-            byte[] byteData = Convert.FromBase64String(data);
-            File.WriteAllBytes(filePath, byteData);
+            File.WriteAllBytes(Path.Combine(outputPath, "config.json"), Convert.FromBase64String(config));
+            File.WriteAllBytes(Path.Combine(outputPath, $"{fontName}.ttf"), Convert.FromBase64String(ttf));
         }
     }
 
-    internal class Glyph
+    internal class Config
     {
-        public string name { get; set; }
+        public string fontName { get; set; }
+    }
+
+    internal class Icon
+    {
+        public string fileName { get; set; }
         public string data { get; set; }
 
-        public Glyph(string name, byte[] data)
+        public Icon(string name, byte[] data)
         {
-            this.name = name;
+            this.fileName = name;
             this.data = Convert.ToBase64String(data);
         }
     }
